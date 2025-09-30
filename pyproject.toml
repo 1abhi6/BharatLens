@@ -1,7 +1,12 @@
 [project]
-name = "autonomous-sales-agent"
+name = "BharatLens"
 version = "0.1.0"
-description = "Add your description here"
+description = "Looking at global geopolitics through India’s perspective."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "anthropic>=0.69.0",
+    "autogen-agentchat>=0.7.5",
+    "autogen-ext>=0.7.5",
+    "openai>=1.109.1",
+]

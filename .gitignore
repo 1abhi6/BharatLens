@@ -21,3 +21,7 @@ wheels/
 *.tiff
 *.webp
 /diagrams/
+
+
+# Environment files
+.env

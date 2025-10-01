@@ -1,0 +1,38 @@
+# Python cache / bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Package manager stuff
+.uv/
+*.lock
+
+# Build and dist
+build/
+dist/
+*.egg-info
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE configs
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Local environment files (secrets handled via env vars)
+.env
+.env.*
+
+# Git
+.git
+.gitignore

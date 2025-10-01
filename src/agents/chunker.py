@@ -1,15 +1,11 @@
 import asyncio
 import os
 from pathlib import Path
-
-from autogen_agentchat.agents import AssistantAgent
-from autogen_agentchat.ui import Console
 from autogen_ext.memory.chromadb import (
     ChromaDBVectorMemory,
     PersistentChromaDBVectorMemoryConfig,
 )
-from autogen_ext.models.openai import OpenAIChatCompletionClient
-from indexer import SimpleDocumentIndexer
+from src.agents.indexer import SimpleDocumentIndexer
 
 # Initialize vector memory
 
@@ -35,6 +31,7 @@ async def index_autogen_docs() -> None:
     ]
     chunks: int = await indexer.index_documents(sources)
     print(f"Indexed {chunks} chunks from {len(sources)} AutoGen documents")
+
 
 async def main():
     await rag_memory.clear()  # Clear existing memory

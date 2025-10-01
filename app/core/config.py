@@ -1,6 +1,5 @@
 # settings using pydantic BaseSettings
 
-from pydantic import AnyUrl
 from pydantic_settings import BaseSettings
 from typing import Optional
 import os

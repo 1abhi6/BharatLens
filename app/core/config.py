@@ -1,0 +1,1 @@
+# settings using pydantic BaseSettings

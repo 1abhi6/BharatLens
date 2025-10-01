@@ -18,7 +18,7 @@ class UserRead(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserPublic(BaseModel):
@@ -27,5 +27,5 @@ class UserPublic(BaseModel):
     full_name: Optional[str]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 

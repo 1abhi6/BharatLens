@@ -1,16 +1,18 @@
 # sessions, send message, history
+import uuid
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-import uuid
 
-from app.db.session import get_async_session
 from app.api.deps import get_current_user
-from app.schemas.session import SessionCreate, SessionRead
-from app.schemas.message import MessageCreate, MessageRead
+from app.crud.message import create_message, get_messages_by_session
 from app.crud.session import create_chat_session, get_chat_session
-from app.crud.message import create_message
-from app.services.llm_client import generate_response
+from app.db.session import get_async_session
 from app.models.message import RoleEnum
+from app.schemas.message import MessageCreate, MessageRead
+from app.schemas.session import SessionCreate, SessionRead
+from app.services.llm_client import generate_response
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -60,3 +62,23 @@ async def send_message(
     )
 
     return assistant_msg
+
+
+@router.get("/sessions/{session_id}/messages", response_model=List[MessageRead])
+async def get_session_messages(
+    session_id: uuid.UUID,
+    db: AsyncSession = Depends(get_async_session),
+    current_user=Depends(get_current_user),
+):
+    session = await get_chat_session(db, session_id)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
+    if session.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not your session"
+        )
+
+    messages = await get_messages_by_session(db, session_id)
+    return messages

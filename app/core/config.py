@@ -1,27 +1,14 @@
-# settings using pydantic BaseSettings
-
 from pydantic_settings import BaseSettings
 from typing import Optional
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "chatbot"
-    # Database: postgresql+asyncpg://user:pass@host:port/dbname
-    DATABASE_URL: str = os.getenv("DATABASE_URL")
-
-    # JWT
-    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY")
+    DATABASE_URL: str
+    JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day by default
-
-    # OpenAI
-    OPENAI_API_KEY: Optional[str]
-
-    # Misc
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
+    OPENAI_API_KEY: Optional[str] = None
     sqlalchemy_echo: bool = False
 
     class Config:

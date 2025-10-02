@@ -12,7 +12,7 @@ app = FastAPI(title="Chatbot API")
 # Allow frontend origins
 origins = [
     "http://localhost:8080",   # local React dev
-    # "https://your-frontend-domain.com",  # deployed frontend
+    "https://bharatlens.onrender.com/",  # deployed frontend
 ]
 
 # CORS setup

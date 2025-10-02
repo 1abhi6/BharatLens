@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
@@ -6,6 +7,22 @@ from app.api.v1 import auth, users, chat
 from app.db.session import get_async_session
 
 app = FastAPI(title="Chatbot API")
+
+
+# Allow frontend origins
+origins = [
+    "http://localhost:8080",   # local React dev
+    # "https://your-frontend-domain.com",  # deployed frontend
+]
+
+# CORS setup
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,            # list of allowed origins
+    allow_credentials=True,
+    allow_methods=["*"],              # allow all HTTP methods
+    allow_headers=["*"],              # allow all headers
+)
 
 # Routers
 app.include_router(auth.router, prefix="/api/v1")

@@ -1,7 +1,8 @@
 from pydantic import BaseModel
 from datetime import datetime
 import uuid
-from typing import Optional
+from typing import Optional, List
+from app.schemas.message import MessageRead # Import MessageRead schema
 
 
 class SessionCreate(BaseModel):
@@ -14,6 +15,17 @@ class SessionRead(BaseModel):
     title: Optional[str]
     created_at: datetime
     updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SessionWithMessages(BaseModel):
+    id: uuid.UUID
+    title: str | None
+    created_at: datetime
+    updated_at: datetime
+    messages: List[MessageRead]
 
     class Config:
         from_attributes = True

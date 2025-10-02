@@ -18,10 +18,6 @@ async def generate_response(messages: list[dict]) -> str:
             api_key=OPENAI_API_KEY,
         )
 
-        # resp = await model_client.create([UserMessage(content=messages[-1].get("content", ""), source="user")])
-        print(messages)
-        print(type(messages))
-        print(list(messages))
         resp = model_client.invoke(list(messages))
 
         return resp.content

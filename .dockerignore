@@ -32,7 +32,9 @@ Thumbs.db
 # Local environment files (secrets handled via env vars)
 .env
 .env.*
+.env.example
 
 # Git
 .git
 .gitignore
+.github/

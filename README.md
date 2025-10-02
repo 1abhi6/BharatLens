@@ -18,7 +18,7 @@ Whether it’s analyzing global events, interpreting diplomatic trends, or conte
   - Implemented **RAG (Retrieval-Augmented Generation)**  
 - **Database**: PostgreSQL (hosted on [Neon](https://neon.tech))  
 - **Deployment**: Deployed on [Render.com](https://render.com) using Docker + GitHub Actions CI/CD.  
-- **Live API**: [https://bharatlens.onrender.com/docs](https://bharatlens.onrender.com/docs)  
+- **Try Out Live API**: [https://bharatlens.onrender.com/docs](https://bharatlens.onrender.com/docs)  
 
 ---
 
@@ -46,7 +46,6 @@ Whether it’s analyzing global events, interpreting diplomatic trends, or conte
 - `POST /api/v1/chat/sessions/{session_id}/messages` → Send message & get LLM response  
 - `GET /api/v1/chat/sessions/{session_id}/messages` → Get messages (paginated)  
 
-### Try out API docs [Here](https://bharatlens.onrender.com)
 ---
 
 ## 🛠️ Running Locally

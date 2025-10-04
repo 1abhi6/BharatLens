@@ -10,8 +10,8 @@ from app.models.attachment import MediaType
 from app.crud.session import get_chat_session, create_chat_session
 from app.crud.message import create_message
 from app.crud.attachments import create_attachment
-from app.services.storage import upload_file_to_s3
-from app.services.llm_client import generate_response
+from app.services import UploadToS3, extract_text_from_s3_image, generate_response
+
 
 router = APIRouter(prefix="/multimodal", tags=["multimodal"])
 
@@ -39,7 +39,8 @@ async def upload_image(
     file_bytes = await file.read()
 
     # Upload to S3
-    file_url = upload_file_to_s3(file_bytes, file.filename, file.content_type)
+    s3_obj = UploadToS3()
+    file_url = s3_obj.upload_file_to_s3(file_bytes, file.filename, file.content_type)
 
     # Save user message with image metadata
     user_msg = await create_message(
@@ -54,11 +55,21 @@ async def upload_image(
         {"filename": file.filename},
     )
 
+    print("I AM INTO REKOGNITION")
+    # Get the image description from AWS rekognition
+    print("OUT FROM REKOGNITION")
+    label_list = extract_text_from_s3_image(file_url)
+    print("LABEL LIST: ", label_list)
+
+    # Convert the label_list to text for feeding the LLM
+    # label_str = ", ".join(label["Name"] for label in label_list)
+    # print("LABEL STR: ", label_str)
+
     # For now: just describe the image
     history = [
         {
             "role": "user",
-            "content": f"User uploaded an image: {file.filename}. Prompt: {prompt}",
+            "content": f"User uploaded an image: The content of image is: \n{label_list}. Prompt:\n {prompt}",
         }
     ]
 

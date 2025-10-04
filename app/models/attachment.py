@@ -32,4 +32,6 @@ class Attachment(Base):
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
+    session = relationship("ChatSession", back_populates="attachments")
     message = relationship("Message", back_populates="attachments")
+

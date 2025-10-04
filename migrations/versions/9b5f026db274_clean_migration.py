@@ -1,8 +1,8 @@
-"""Add attachments table
+"""Clean migration
 
-Revision ID: bd9cbcc737cc
-Revises: 5a6a9f92a669
-Create Date: 2025-10-04 17:07:16.436890
+Revision ID: 9b5f026db274
+Revises: 
+Create Date: 2025-10-04 19:41:27.177130
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'bd9cbcc737cc'
-down_revision: Union[str, Sequence[str], None] = '5a6a9f92a669'
+revision: str = '9b5f026db274'
+down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

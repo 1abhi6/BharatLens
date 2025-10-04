@@ -20,3 +20,4 @@ class ChatSession(Base):
     messages = relationship("Message", back_populates="session", cascade="all, delete-orphan", lazy="selectin", order_by="Message.created_at")
     attachments = relationship("Attachment", back_populates="session", cascade="all, delete")
 
+

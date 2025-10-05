@@ -23,15 +23,19 @@ class Attachment(Base):
         nullable=True,
     )
     message_id = Column(
-        UUID(as_uuid=True), ForeignKey("messages.id", ondelete="CASCADE"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("messages.id", ondelete="CASCADE"),
+        nullable=True,
     )
 
-    url = Column(String, nullable=False)
-    media_type = Column(Enum(MediaType), nullable=False)
+    url = Column(String, nullable=True)
+    media_type = Column(Enum(MediaType), nullable=True)
     metadata_ = Column(JSONB, nullable=True)
+
+    # To store generated assistant audio responses
+    audio_url = Column(String, nullable=True)
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     session = relationship("ChatSession", back_populates="attachments")
     message = relationship("Message", back_populates="attachments")
-

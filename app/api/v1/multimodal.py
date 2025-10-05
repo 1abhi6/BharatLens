@@ -55,21 +55,13 @@ async def upload_image(
         {"filename": file.filename},
     )
 
-    print("I AM INTO REKOGNITION")
-    # Get the image description from AWS rekognition
-    print("OUT FROM REKOGNITION")
-    label_list = extract_text_from_s3_image(file_url)
-    print("LABEL LIST: ", label_list)
+    ocr = extract_text_from_s3_image(file_url)
 
-    # Convert the label_list to text for feeding the LLM
-    # label_str = ", ".join(label["Name"] for label in label_list)
-    # print("LABEL STR: ", label_str)
-
-    # For now: just describe the image
+    # Creating the prompt
     history = [
         {
             "role": "user",
-            "content": f"User uploaded an image: The content of image is: \n{label_list}. Prompt:\n {prompt}",
+            "content": f"User uploaded an image: The content of image is: \n{ocr}. Prompt:\n {prompt}",
         }
     ]
 

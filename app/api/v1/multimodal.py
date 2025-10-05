@@ -8,12 +8,11 @@ from app.crud.attachments import create_attachment
 from app.crud.message import create_message
 from app.crud.session import create_chat_session, get_chat_session
 from app.db.session import get_async_session
+from app.models import VoiceStyle
 from app.models.attachment import MediaType
 from app.models.message import RoleEnum
-from app.core.config import settings
-from app.models import VoiceStyle
-
 from app.services import (
+    AudioOutput,
     UploadToS3,
     extract_text_from_s3_image,
     generate_response,
@@ -88,7 +87,7 @@ async def upload_meida(
         job_name = f"audio_transcribe_{uuid.uuid4().hex[:6]}"
         text_content = transcribe_file(job_name=job_name, s3_uri=file_url)
         content_summary = f"User uploaded audio. Transcription: {text_content}. Prompt: {prompt or ''}"
-        
+
     else:
         raise HTTPException(status_code=400, detail="Unsupported media type")
 
@@ -121,25 +120,13 @@ async def upload_meida(
         "message_id": str(assistant_msg.id),
     }
 
-    # --- Phase 3: Optional Audio Output ---
+    # --- Optional Audio Output ---
     if audio_output:
-        from openai import AsyncOpenAI
-        import tempfile
-
-        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio:
-            audio_resp = await client.audio.speech.create(
-                model="gpt-4o-mini-tts",
-                voice=voice_style,
-                input=assistant_content,
-            )
-            audio_resp.stream_to_file(temp_audio.name)
-
-            # Upload generated audio to S3
-            with open(temp_audio.name, "rb") as audio_file:
-                audio_url = s3_obj.upload_file_to_s3(
-                    audio_file.read(), f"{uuid.uuid4()}.mp3", "audio/mpeg"
-                )
+        # Convert text to audio and Upload on S3
+        audio_output_service = AudioOutput()
+        audio_url = await audio_output_service.convert_text_into_audio(
+            voice_style=voice_style, assistant_content=assistant_msg.content
+        )
 
         # Save assistant audio attachment
         await create_attachment(

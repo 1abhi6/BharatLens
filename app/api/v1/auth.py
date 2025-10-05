@@ -1,18 +1,18 @@
-# register/login/refresh
-from fastapi import APIRouter, Depends, HTTPException, status, Form
-from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import timedelta
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas.user import UserCreate, UserRead
-from app.schemas.token import Token
-from app.crud.user import get_user_by_email, create_user
-from app.db.session import get_async_session
-from app.auth.password import verify_password
 from app.auth.jwt import create_access_token
+from app.auth.password import verify_password
 from app.core.config import settings
+from app.crud.user import create_user, get_user_by_email
+from app.db.session import get_async_session
+from app.schemas.token import Token
+from app.schemas.user import UserCreate, UserRead
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post("/register", response_model=UserRead)

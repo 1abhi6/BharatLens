@@ -20,12 +20,13 @@ from app.services import (
     transcribe_file,
 )
 
+
 router = APIRouter(prefix="/multimodal", tags=["Multimodal"])
 
 
 @router.post("/chat")
 async def multimodal_chat(
-    file: Optional[UploadFile] = File(None, description="Optional image/audio file."),
+    file: Optional[UploadFile] = Form(None, description="Optional File Upload"),
     session_id: Optional[uuid.UUID] = Form(None),
     prompt: Optional[str] = Form(None, description="User text input or question."),
     audio_output: bool = Form(False, description="Return response as audio if True."),
@@ -157,9 +158,8 @@ async def multimodal_chat(
             url=file_url,
             media_type=media_type,
             metadata_={"voice_style": voice_style.value},
-            audio_url=audio_s3_url
+            audio_url=audio_s3_url,
         )
-
 
     # Add media file link if uploaded
     if file_url:

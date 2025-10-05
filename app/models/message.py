@@ -30,3 +30,6 @@ class Message(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     session = relationship("ChatSession", back_populates="messages", lazy="joined")
+    # Relationship to Attachment
+    attachments = relationship("Attachment", back_populates="message", cascade="all, delete-orphan")
+

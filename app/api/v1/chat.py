@@ -19,7 +19,7 @@ from app.models.chat_session import ChatSession
 from app.schemas.session import SessionWithMessages
 
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(prefix="/chat", tags=["Chat"])
 
 
 # List all the user sessions and their related messages

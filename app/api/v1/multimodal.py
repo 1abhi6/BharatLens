@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,12 +23,12 @@ from app.services import (
 router = APIRouter(prefix="/multimodal", tags=["Multimodal"])
 
 
-@router.post("/media")
-async def upload_meida(
-    file: UploadFile = File(...),
-    session_id: uuid.UUID | None = Form(None),
-    prompt: str | None = Form(None),
-    audio_output: bool = Form(False),
+@router.post("/chat")
+async def multimodal_chat(
+    file: Optional[UploadFile] = File(None, description="Optional image/audio file."),
+    session_id: Optional[uuid.UUID] = Form(None),
+    prompt: Optional[str] = Form(None, description="User text input or question."),
+    audio_output: bool = Form(False, description="Return response as audio if True."),
     voice_style: VoiceStyle = Form(
         VoiceStyle.alloy,
         description="""
@@ -44,8 +45,10 @@ async def upload_meida(
     current_user=Depends(get_current_user),
 ):
     """
-    Accepts image or audio, processes it via OCR or Transcription,
-    and optionally returns the LLM response as audio.
+    Handles multimodal chat:
+    - Accepts optional text (`prompt`) or media file (image/audio)
+    - Supports text or audio output response
+    - Returns assistant response and optional audio file URL
     """
     SUPPORTED_TYPES = {
         "image": ["image/jpeg", "image/png", "image/webp"],
@@ -58,10 +61,12 @@ async def upload_meida(
             "audio/ogg",
         ],
     }
+
     all_types = SUPPORTED_TYPES["image"] + SUPPORTED_TYPES["audio"]
 
-    if file.content_type not in all_types:
-        raise HTTPException(status_code=400, detail="Unsupported file type")
+    # Check if both file and prompt are empty
+    if not file and not prompt:
+        raise HTTPException(status_code=400, detail="Either file or prompt is required")
 
     # Session handling
     if not session_id:
@@ -71,73 +76,81 @@ async def upload_meida(
         if not session or session.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Invalid session")
 
-    # Upload to S3
-    file_bytes = await file.read()
-    s3_obj = UploadToS3()
-    file_url = s3_obj.upload_file_to_s3(file_bytes, file.filename, file.content_type)
+    # Step 1: Determine content
+    content_summary = ""
+    file_url = None
+    media_type = None
 
-    # Handle type
-    if file.content_type in SUPPORTED_TYPES["image"]:
-        media_type = MediaType.image
-        text_content = extract_text_from_s3_image(file_url)
-        content_summary = f"User uploaded an image. Extracted text: {text_content}. Prompt: {prompt or ''}"
+    if file:
+        if file.content_type not in all_types:
+            raise HTTPException(status_code=400, detail="Unsupported file type")
 
-    elif file.content_type in SUPPORTED_TYPES["audio"]:
-        media_type = MediaType.audio
-        job_name = f"audio_transcribe_{uuid.uuid4().hex[:6]}"
-        text_content = transcribe_file(job_name=job_name, s3_uri=file_url)
-        content_summary = f"User uploaded audio. Transcription: {text_content}. Prompt: {prompt or ''}"
+        file_bytes = await file.read()
+        s3_obj = UploadToS3()
+        file_url = s3_obj.upload_file_to_s3(
+            file_bytes, file.filename, file.content_type
+        )
 
+        # Image Processing
+        if file.content_type in SUPPORTED_TYPES["image"]:
+            media_type = MediaType.image
+            ocr_text = extract_text_from_s3_image(file_url)
+            content_summary = (
+                f"User uploaded an image. Extracted text: {ocr_text}. Prompt: {prompt}"
+            )
+
+        # Audio Processing
+        elif file.content_type in SUPPORTED_TYPES["audio"]:
+            media_type = MediaType.audio
+            text_content = transcribe_file(job_name="audio_transcribe", s3_uri=file_url)
+            content_summary = (
+                f"User uploaded an audio file. Transcription: {text_content}. "
+                f"Convert it to English unless explicitly asked otherwise. Prompt: {prompt}"
+            )
+
+        # Save attachment
+        user_msg = await create_message(
+            db, session.id, RoleEnum.user, prompt or f"Uploaded a {media_type.value}"
+        )
+        await create_attachment(
+            db,
+            session.id,
+            user_msg.id,
+            file_url,
+            media_type,
+            {"filename": file.filename},
+        )
     else:
-        raise HTTPException(status_code=400, detail="Unsupported media type")
+        # Text-only chat
+        content_summary = f"User says: {prompt}"
 
-    # Save user message
-    user_msg = await create_message(
-        db, session.id, RoleEnum.user, prompt or f"Uploaded {media_type.value}"
-    )
-    await create_attachment(
-        db,
-        session.id,
-        user_msg.id,
-        file_url,
-        media_type,
-        {"filename": file.filename},
-    )
-
-    # Generate assistant response
+    # Step 2: Generate Assistant Response
     history = [{"role": "user", "content": content_summary}]
     assistant_content = await generate_response(history)
 
-    # Save assistant message
     assistant_msg = await create_message(
         db, session.id, RoleEnum.assistant, assistant_content
     )
 
-    response_data = {
+    response_payload = {
         "assistant_message": assistant_msg.content,
-        "file_url": file_url,
         "session_id": str(session.id),
         "message_id": str(assistant_msg.id),
     }
 
-    # --- Optional Audio Output ---
+    # Step 3: Audio Output
     if audio_output:
         # Convert text to audio and Upload on S3
         audio_output_service = AudioOutput()
-        audio_url = await audio_output_service.convert_text_into_audio(
-            voice_style=voice_style, assistant_content=assistant_msg.content
+        audio_s3_url = await audio_output_service.convert_text_into_audio(
+            assistant_content=assistant_content,
+            voice_style=voice_style.value,
         )
 
-        # Save assistant audio attachment
-        await create_attachment(
-            db,
-            session.id,
-            assistant_msg.id,
-            audio_url,
-            MediaType.audio,
-            {"source": "generated_speech"},
-        )
+        response_payload["audio_output_url"] = audio_s3_url
 
-        response_data["assistant_audio_url"] = audio_url
+    # Add media file link if uploaded
+    if file_url:
+        response_payload["uploaded_file_url"] = file_url
 
-    return response_data
+    return response_payload

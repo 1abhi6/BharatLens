@@ -140,7 +140,7 @@ async def multimodal_chat(
 
     # Step 3: Audio Output
     if audio_output:
-        # Convert text to audio and Upload on S3
+        # Convert text to audio and upload to S3
         audio_output_service = AudioOutput()
         audio_s3_url = await audio_output_service.convert_text_into_audio(
             assistant_content=assistant_content,
@@ -148,6 +148,18 @@ async def multimodal_chat(
         )
 
         response_payload["audio_output_url"] = audio_s3_url
+
+        # Save assistant audio as an attachment in DB
+        await create_attachment(
+            db=db,
+            session_id=session.id,
+            message_id=assistant_msg.id,
+            url=file_url,
+            media_type=media_type,
+            metadata_={"voice_style": voice_style.value},
+            audio_url=audio_s3_url
+        )
+
 
     # Add media file link if uploaded
     if file_url:

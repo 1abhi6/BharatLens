@@ -28,8 +28,8 @@ class Attachment(Base):
         nullable=True,
     )
 
-    url = Column(String, nullable=False)
-    media_type = Column(Enum(MediaType), nullable=False)
+    url = Column(String, nullable=True)
+    media_type = Column(Enum(MediaType), nullable=True)
     metadata_ = Column(JSONB, nullable=True)
 
     # To store generated assistant audio responses

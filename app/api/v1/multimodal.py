@@ -124,6 +124,12 @@ async def multimodal_chat(
     else:
         # Text-only chat
         content_summary = f"User says: {prompt}"
+        user_msg = await create_message(
+            db,
+            session.id,
+            RoleEnum.user,
+            prompt or "User sent a text message",
+        )
 
     # Step 2: Generate Assistant Response
     history = [{"role": "user", "content": content_summary}]

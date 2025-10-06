@@ -26,7 +26,7 @@ router = APIRouter(prefix="/multimodal", tags=["Multimodal"])
 
 @router.post("/chat")
 async def multimodal_chat(
-    file: Optional[UploadFile] = Form(None, description="Optional File Upload"),
+    file: Optional[UploadFile] = File(None, description="Optional File Upload"),
     session_id: Optional[uuid.UUID] = Form(None),
     prompt: Optional[str] = Form(None, description="User text input or question."),
     audio_output: bool = Form(False, description="Return response as audio if True."),

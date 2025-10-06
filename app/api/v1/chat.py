@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy import select
 
 from app.api.deps import get_current_user
-from app.crud.message import create_message, get_messages_by_session
+from app.crud.message import create_message
 from app.crud.session import create_chat_session, get_chat_session
 from app.db.session import get_async_session
 from app.models.message import RoleEnum

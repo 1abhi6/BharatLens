@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.crud.attachments import create_attachment
-from app.crud.message import create_message
+from app.crud.message import create_message, get_messages_by_session
 from app.crud.session import create_chat_session, get_chat_session
 from app.db.session import get_async_session
 from app.models import VoiceStyle
@@ -19,7 +19,6 @@ from app.services import (
     generate_response,
     transcribe_file,
 )
-
 
 router = APIRouter(prefix="/multimodal", tags=["Multimodal"])
 
@@ -65,7 +64,6 @@ async def multimodal_chat(
 
     all_types = SUPPORTED_TYPES["image"] + SUPPORTED_TYPES["audio"]
 
-    # Check if both file and prompt are empty
     if not file and not prompt:
         raise HTTPException(status_code=400, detail="Either file or prompt is required")
 
@@ -77,11 +75,11 @@ async def multimodal_chat(
         if not session or session.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Invalid session")
 
-    # Step 1: Determine content
-    content_summary = ""
     file_url = None
     media_type = None
+    attachment_metadata = {}
 
+    # Step 1: Save User Message & Attachment if provided
     if file:
         if file.content_type not in all_types:
             raise HTTPException(status_code=400, detail="Unsupported file type")
@@ -92,47 +90,72 @@ async def multimodal_chat(
             file_bytes, file.filename, file.content_type
         )
 
-        # Image Processing
+        attachment_metadata = {"filename": file.filename}
         if file.content_type in SUPPORTED_TYPES["image"]:
             media_type = MediaType.image
             ocr_text = extract_text_from_s3_image(file_url)
-            content_summary = (
-                f"User uploaded an image. Extracted text: {ocr_text}. Prompt: {prompt}"
-            )
+            attachment_metadata["ocr_text"] = ocr_text
 
-        # Audio Processing
         elif file.content_type in SUPPORTED_TYPES["audio"]:
             media_type = MediaType.audio
             text_content = transcribe_file(job_name="audio_transcribe", s3_uri=file_url)
-            content_summary = (
-                f"User uploaded an audio file. Transcription: {text_content}. "
-                f"Convert it to English unless explicitly asked otherwise. Prompt: {prompt}"
-            )
+            attachment_metadata["transcription"] = text_content
+        else:
+            media_type = None
 
-        # Save attachment
-        user_msg = await create_message(
-            db, session.id, RoleEnum.user, prompt or f"Uploaded a {media_type.value}"
+        message_content = (
+            prompt or f"Uploaded a {media_type.value if media_type else 'file'}"
         )
+
+        user_msg = await create_message(db, session.id, RoleEnum.user, message_content)
+
         await create_attachment(
             db,
             session.id,
             user_msg.id,
             file_url,
             media_type,
-            {"filename": file.filename},
+            attachment_metadata,
         )
     else:
-        # Text-only chat
-        content_summary = f"User says: {prompt}"
+        message_content = prompt or "User sent a text message"
         user_msg = await create_message(
             db,
             session.id,
             RoleEnum.user,
-            prompt or "User sent a text message",
+            message_content,
         )
 
-    # Step 2: Generate Assistant Response
-    history = [{"role": "user", "content": content_summary}]
+    # Step 2: Build conversation history directly from DB
+    previous_messages = await get_messages_by_session(db, session.id)
+    history = [
+        {"role": msg.role.value, "content": msg.content} for msg in previous_messages
+    ]
+
+    # Step 2a: Inject OCR or Transcription as system message ONLY for this LLM call
+    system_context_msg = None
+    if file:
+        if (
+            file.content_type in SUPPORTED_TYPES["image"]
+            and "ocr_text" in attachment_metadata
+            and attachment_metadata["ocr_text"]
+        ):
+            system_context_msg = (
+                f"OCR extracted from image: {attachment_metadata['ocr_text']}"
+            )
+        elif (
+            file.content_type in SUPPORTED_TYPES["audio"]
+            and "transcription" in attachment_metadata
+            and attachment_metadata["transcription"]
+        ):
+            system_context_msg = (
+                f"Transcription of audio: {attachment_metadata['transcription']}"
+            )
+        if system_context_msg:
+            # Add as a system message as last in history
+            history.append({"role": "system", "content": system_context_msg})
+
+    # Step 3: Generate assistant response using enriched LLM context
     assistant_content = await generate_response(history)
 
     assistant_msg = await create_message(
@@ -145,9 +168,8 @@ async def multimodal_chat(
         "message_id": str(assistant_msg.id),
     }
 
-    # Step 3: Audio Output
+    # Step 4: Audio Output (Assistant reply)
     if audio_output:
-        # Convert text to audio and upload to S3
         audio_output_service = AudioOutput()
         audio_s3_url = await audio_output_service.convert_text_into_audio(
             assistant_content=assistant_content,
@@ -156,18 +178,16 @@ async def multimodal_chat(
 
         response_payload["audio_output_url"] = audio_s3_url
 
-        # Save assistant audio as an attachment in DB
         await create_attachment(
             db=db,
             session_id=session.id,
             message_id=assistant_msg.id,
-            url=file_url,
-            media_type=media_type,
+            url=audio_s3_url,
+            media_type=MediaType.audio,
             metadata_={"voice_style": voice_style.value},
-            audio_url=audio_s3_url,
+            audio_url=audio_s3_url
         )
 
-    # Add media file link if uploaded
     if file_url:
         response_payload["uploaded_file_url"] = file_url
 

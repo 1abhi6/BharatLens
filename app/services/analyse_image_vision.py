@@ -1,12 +1,12 @@
-from openai import AsyncOpenAI
 import os
+
 from dotenv import load_dotenv
+from openai import AsyncOpenAI
 
 load_dotenv()
 
 # Use async client
 client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
 
 async def analyze_image_vision_fn(image_url: str) -> str:
     """

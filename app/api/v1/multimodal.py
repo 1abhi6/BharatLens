@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -15,11 +15,12 @@ from app.models.message import RoleEnum
 from app.services import (
     AudioOutput,
     UploadToS3,
-    extract_text_from_s3_docs,
     analyze_image_vision_fn,
+    extract_text_from_s3_docs,
     generate_response,
     transcribe_file,
 )
+from app.utils import clean_text_fn
 
 router = APIRouter(prefix="/multimodal", tags=["Multimodal"])
 
@@ -117,6 +118,7 @@ async def multimodal_chat(
         elif file.content_type in SUPPORTED_TYPES["document"]:
             media_type = MediaType.document
             doc_text = await extract_text_from_s3_docs(file_url)
+            doc_text = clean_text_fn(doc_text)
             attachment_metadata["document_text"] = doc_text
 
         else:

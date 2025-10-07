@@ -166,24 +166,6 @@ async def multimodal_chat(
         elif "document_text" in attachment_metadata:
             system_context_msg = f"Extracted text from document: {attachment_metadata['document_text'][:2000]}"  # truncate for safety
 
-        # if (
-        #     file.content_type in SUPPORTED_TYPES["image"]
-        #     and "image_description" in attachment_metadata
-        #     and attachment_metadata["image_description"]
-        # ):
-        #     system_context_msg = f"Extracted description from image: {attachment_metadata['image_description']}"
-        # elif (
-        #     file.content_type in SUPPORTED_TYPES["audio"]
-        #     and "transcription" in attachment_metadata
-        #     and attachment_metadata["transcription"]
-        # ):
-        #     system_context_msg = (
-        #         f"Transcription of audio: {attachment_metadata['transcription']}"
-        #     )
-
-        # elif "document_text" in attachment_metadata:
-        #     system_context_msg = f"Extracted text from document: {attachment_metadata['document_text'][:2000]}"  # truncate for safety
-
         if system_context_msg:
             # Add as a system message as last in history
             history.append({"role": "system", "content": system_context_msg})

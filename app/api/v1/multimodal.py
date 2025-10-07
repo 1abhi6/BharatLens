@@ -15,7 +15,8 @@ from app.models.message import RoleEnum
 from app.services import (
     AudioOutput,
     UploadToS3,
-    extract_text_from_s3_image,
+    extract_text_from_s3_docs,
+    analyze_image_vision_fn,
     generate_response,
     transcribe_file,
 )
@@ -46,7 +47,7 @@ async def multimodal_chat(
 ):
     """
     Handles multimodal chat:
-    - Accepts optional text (`prompt`) or media file (image/audio)
+    - Accepts optional text (`prompt`) or media file (image/audio/docs[pdf, docx])
     - Supports text or audio output response
     - Returns assistant response and optional audio file URL
     """
@@ -60,9 +61,17 @@ async def multimodal_chat(
             "audio/x-wav",
             "audio/ogg",
         ],
+        "document": [
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ],
     }
 
-    all_types = SUPPORTED_TYPES["image"] + SUPPORTED_TYPES["audio"]
+    all_types = (
+        SUPPORTED_TYPES["image"]
+        + SUPPORTED_TYPES["audio"]
+        + SUPPORTED_TYPES["document"]
+    )
 
     if not file and not prompt:
         raise HTTPException(status_code=400, detail="Either file or prompt is required")
@@ -91,15 +100,25 @@ async def multimodal_chat(
         )
 
         attachment_metadata = {"filename": file.filename}
+
+        # ----- IMAGE -----
         if file.content_type in SUPPORTED_TYPES["image"]:
             media_type = MediaType.image
-            ocr_text = extract_text_from_s3_image(file_url)
-            attachment_metadata["ocr_text"] = ocr_text
+            image_description = await analyze_image_vision_fn(file_url)
+            attachment_metadata["image_description"] = image_description
 
+        # ----- AUDIO -----
         elif file.content_type in SUPPORTED_TYPES["audio"]:
             media_type = MediaType.audio
             text_content = transcribe_file(job_name="audio_transcribe", s3_uri=file_url)
             attachment_metadata["transcription"] = text_content
+
+        # ----- DOCUMENT -----
+        elif file.content_type in SUPPORTED_TYPES["document"]:
+            media_type = MediaType.document
+            doc_text = await extract_text_from_s3_docs(file_url)
+            attachment_metadata["document_text"] = doc_text
+
         else:
             media_type = None
 
@@ -128,29 +147,43 @@ async def multimodal_chat(
 
     # Step 2: Build conversation history directly from DB
     previous_messages = await get_messages_by_session(db, session.id)
+
     history = [
         {"role": msg.role.value, "content": msg.content} for msg in previous_messages
     ]
 
-    # Step 2a: Inject OCR or Transcription as system message ONLY for this LLM call
+    # Step 2a: Inject image description or Transcription or or extracted doc text
     system_context_msg = None
     if file:
-        if (
-            file.content_type in SUPPORTED_TYPES["image"]
-            and "ocr_text" in attachment_metadata
-            and attachment_metadata["ocr_text"]
-        ):
+        if "image_description" in attachment_metadata:
             system_context_msg = (
-                f"OCR extracted from image: {attachment_metadata['ocr_text']}"
+                f"OCR extracted from image: {attachment_metadata['image_description']}"
             )
-        elif (
-            file.content_type in SUPPORTED_TYPES["audio"]
-            and "transcription" in attachment_metadata
-            and attachment_metadata["transcription"]
-        ):
+        elif "transcription" in attachment_metadata:
             system_context_msg = (
                 f"Transcription of audio: {attachment_metadata['transcription']}"
             )
+        elif "document_text" in attachment_metadata:
+            system_context_msg = f"Extracted text from document: {attachment_metadata['document_text'][:2000]}"  # truncate for safety
+
+        # if (
+        #     file.content_type in SUPPORTED_TYPES["image"]
+        #     and "image_description" in attachment_metadata
+        #     and attachment_metadata["image_description"]
+        # ):
+        #     system_context_msg = f"Extracted description from image: {attachment_metadata['image_description']}"
+        # elif (
+        #     file.content_type in SUPPORTED_TYPES["audio"]
+        #     and "transcription" in attachment_metadata
+        #     and attachment_metadata["transcription"]
+        # ):
+        #     system_context_msg = (
+        #         f"Transcription of audio: {attachment_metadata['transcription']}"
+        #     )
+
+        # elif "document_text" in attachment_metadata:
+        #     system_context_msg = f"Extracted text from document: {attachment_metadata['document_text'][:2000]}"  # truncate for safety
+
         if system_context_msg:
             # Add as a system message as last in history
             history.append({"role": "system", "content": system_context_msg})
@@ -185,7 +218,7 @@ async def multimodal_chat(
             url=audio_s3_url,
             media_type=MediaType.audio,
             metadata_={"voice_style": voice_style.value},
-            audio_url=audio_s3_url
+            audio_url=audio_s3_url,
         )
 
     if file_url:

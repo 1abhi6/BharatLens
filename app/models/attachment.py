@@ -11,6 +11,7 @@ import enum
 class MediaType(str, enum.Enum):
     image = "image"
     audio = "audio"
+    document = "document"
 
 
 class Attachment(Base):

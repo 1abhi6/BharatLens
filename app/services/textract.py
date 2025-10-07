@@ -3,9 +3,11 @@ from app.utils import extract_bucket_and_key
 from app.core.config import settings
 
 
-def extract_text_from_s3_image(image_s3_url):
+def extract_text_from_s3_docs(s3_url):
+    """
+    Extract text from documents (PDF, DOCX, etc.) stored in S3 using AWS Textract."""
     # Get bucket and name
-    res = extract_bucket_and_key(image_s3_url)
+    res = extract_bucket_and_key(s3_url)
     bucket = res[0]
     document = res[1]
 

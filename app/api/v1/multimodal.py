@@ -15,7 +15,8 @@ from app.models.message import RoleEnum
 from app.services import (
     AudioOutput,
     UploadToS3,
-    extract_text_from_s3_image,
+    extract_text_from_s3_docs,
+    analyze_image_vision_fn,
     generate_response,
     transcribe_file,
 )
@@ -46,7 +47,7 @@ async def multimodal_chat(
 ):
     """
     Handles multimodal chat:
-    - Accepts optional text (`prompt`) or media file (image/audio)
+    - Accepts optional text (`prompt`) or media file (image/audio/docs[pdf, docx])
     - Supports text or audio output response
     - Returns assistant response and optional audio file URL
     """
@@ -93,8 +94,8 @@ async def multimodal_chat(
         attachment_metadata = {"filename": file.filename}
         if file.content_type in SUPPORTED_TYPES["image"]:
             media_type = MediaType.image
-            ocr_text = extract_text_from_s3_image(file_url)
-            attachment_metadata["ocr_text"] = ocr_text
+            image_description = await analyze_image_vision_fn(file_url)
+            attachment_metadata["image_description"] = image_description
 
         elif file.content_type in SUPPORTED_TYPES["audio"]:
             media_type = MediaType.audio
@@ -137,11 +138,11 @@ async def multimodal_chat(
     if file:
         if (
             file.content_type in SUPPORTED_TYPES["image"]
-            and "ocr_text" in attachment_metadata
-            and attachment_metadata["ocr_text"]
+            and "image_description" in attachment_metadata
+            and attachment_metadata["image_description"]
         ):
             system_context_msg = (
-                f"OCR extracted from image: {attachment_metadata['ocr_text']}"
+                f"OCR extracted from image: {attachment_metadata['image_description']}"
             )
         elif (
             file.content_type in SUPPORTED_TYPES["audio"]
@@ -185,7 +186,7 @@ async def multimodal_chat(
             url=audio_s3_url,
             media_type=MediaType.audio,
             metadata_={"voice_style": voice_style.value},
-            audio_url=audio_s3_url
+            audio_url=audio_s3_url,
         )
 
     if file_url:
